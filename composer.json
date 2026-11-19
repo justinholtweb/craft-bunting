@@ -68,7 +68,7 @@
         "handle": "bunting",
         "developer": "Justin Holt",
         "developerUrl": "https://justinholt.com",
-        "documentationUrl": "https://github.com/justinholtweb/craft-bunting",
+        "documentationUrl": "https://justinholt.com/plugins/craft-bunting/docs",
         "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-bunting/main/CHANGELOG.md",
         "class": "JustinHoltWeb\\Bunting\\Plugin"
     }
