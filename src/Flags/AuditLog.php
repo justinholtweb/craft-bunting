@@ -116,9 +116,10 @@ final class AuditLog
      *
      * @param  list<array<string, mixed>>  $rows
      * @param  array<string, string>|null  $names  UID → handle for sites and groups (default: looked up)
+     * @param  bool  $showUsers  Name the user an override was for (callers pass Craft's “View users”)
      * @return list<array<string, mixed>>
      */
-    public static function present(array $rows, ?array $names = null): array
+    public static function present(array $rows, ?array $names = null, bool $showUsers = true): array
     {
         $show = fn (mixed $v): string => match (true) {
             $v === null => '—',
@@ -142,12 +143,13 @@ final class AuditLog
             return $show($v);
         };
 
-        return array_map(function (array $row) use ($show): array {
+        return array_map(function (array $row) use ($show, $showUsers): array {
             $lines = [];
             $changes = is_array($row['changes'] ?? null) ? $row['changes'] : [];
 
             if ($row['action'] === self::OVERRIDE) {
-                $lines[] = ($changes['user']['label'] ?? '?').': '.$show($changes['override']['from'] ?? null).' → '.$show($changes['override']['to'] ?? null);
+                $who = $showUsers ? ($changes['user']['label'] ?? '?') : '#'.($changes['user']['id'] ?? '?');
+                $lines[] = $who.': '.$show($changes['override']['from'] ?? null).' → '.$show($changes['override']['to'] ?? null);
             } else {
                 foreach ($changes as $key => $change) {
                     $lines[] = $key.': '.$show($change['from'] ?? null).' → '.$show($change['to'] ?? null);

@@ -1,6 +1,6 @@
 <?php
 
-// Bunting harness fixtures (idempotent). Users bunting_alice (staff), bunting_bob, bunting_carol
+// Bunting harness fixtures (idempotent). Users bunting_alice (staff), bunting_bob, bunting_carol, bunting_dave (CP, read-only Bunting)
 // (password "bunting-pass-1"), and seven flags. Prints the users' IDs and UIDs as JSON.
 // Run with: ddev artisan tinker --execute "require 'storage/bunting-fixtures.php';"
 
@@ -8,6 +8,7 @@ use CraftCms\Cms\Support\Facades\Elements;
 use CraftCms\Cms\Support\Facades\UserGroups;
 use CraftCms\Cms\Support\Facades\Users;
 use CraftCms\Cms\User\Elements\User;
+use CraftCms\Cms\User\UserPermissions;
 use JustinHoltWeb\Bunting\Flags\Flag;
 use JustinHoltWeb\Bunting\Flags\Flags;
 
@@ -16,7 +17,7 @@ require_once __DIR__.'/bunting-retry.php';
 $staff = UserGroups::getGroupByHandle('staff') ?? throw new RuntimeException('The harness `staff` group is missing.');
 $people = [];
 
-foreach (['alice' => [$staff->id], 'bob' => [], 'carol' => []] as $name => $groups) {
+foreach (['alice' => [$staff->id], 'bob' => [], 'carol' => [], 'dave' => []] as $name => $groups) {
     $username = "bunting_{$name}";
     $user = User::find()->username($username)->status(null)->one() ?? new User;
     $user->username = $username;
@@ -30,6 +31,9 @@ foreach (['alice' => [$staff->id], 'bob' => [], 'carol' => []] as $name => $grou
     $people[$name] = ['id' => $user->id, 'uid' => $user->uid];
 }
 
+// dave can open Bunting in the CP and read the audit log, but can't edit flags or view users.
+app(UserPermissions::class)->saveUserPermissions($people['dave']['id'], ['accessCp', 'accessPlugin-bunting', 'bunting:viewAudit']);
+
 $flags = app(Flags::class);
 $definitions = [
     // handle => [name, rollout, public, uriPatterns]
@@ -37,7 +41,7 @@ $definitions = [
     'bunting-off' => ['Always off', ['mode' => 'off', 'siteModes' => [], 'groupUids' => [], 'percentage' => 0], false, []],
     'bunting-on' => ['Always on', ['mode' => 'on', 'siteModes' => [], 'groupUids' => [], 'percentage' => 0], false, []],
     'bunting-pct' => ['Half rollout', ['mode' => 'rules', 'percentage' => 50, 'groupUids' => [], 'siteModes' => []], false, []],
-    'bunting-gate' => ['Gated pages', ['mode' => 'off', 'siteModes' => [], 'groupUids' => [], 'percentage' => 0], false, ['bunting/gated', 'bunting/beta/*']],
+    'bunting-gate' => ['Gated pages', ['mode' => 'off', 'siteModes' => [], 'groupUids' => [], 'percentage' => 0], false, ['bunting/gated', 'bunting/beta/*', 'bunting/gated2']],
     'bunting-public' => ['Public flag', ['mode' => 'on', 'siteModes' => [], 'groupUids' => [], 'percentage' => 0], true, []],
     'bunting-private' => ['Private flag', ['mode' => 'on', 'siteModes' => [], 'groupUids' => [], 'percentage' => 0], false, []],
 ];

@@ -28,8 +28,14 @@ login() {
   local j; j=$(mktemp)
   curl -sk -c "$j" -o /dev/null "$U/admin/login"
   local x; x=$(awk '$6=="XSRF-TOKEN"{print $7}' "$j" | python3 -I -c 'import sys,urllib.parse;print(urllib.parse.unquote(sys.stdin.read().strip()))')
-  local c; c=$(curl -sk -b "$j" -c "$j" -o /tmp/bunting-login.json -w '%{http_code}' -H 'Accept: application/json' -H "X-XSRF-TOKEN: $x" -X POST "$U/actions/users/login" \
-    --data-urlencode "loginName=$1" --data-urlencode "password=${2:-bunting-pass-1}")
+  local c i
+  # Craft throttles logins per IP, and other agents log in too: wait out a 429.
+  for i in 1 2 3 4 5 6 7 8 9; do
+    c=$(curl -sk -b "$j" -c "$j" -o /tmp/bunting-login.json -w '%{http_code}' -H 'Accept: application/json' -H "X-XSRF-TOKEN: $x" -X POST "$U/actions/users/login" \
+      --data-urlencode "loginName=$1" --data-urlencode "password=${2:-bunting-pass-1}")
+    [ "$c" = 429 ] || break
+    sleep 10
+  done
   [ "$c" = 200 ] || echo "login $1 failed: $c $(head -c 200 /tmp/bunting-login.json)" >&2
   rm -f /tmp/bunting-login.json
   echo "$j"
@@ -47,7 +53,7 @@ cp "$SRC"/multisite-fixtures.php storage/bunting-multisite-fixtures.php
 cp "$SRC"/multisite-remove.php storage/bunting-multisite-remove.php
 PEOPLE=$(tk "require 'storage/bunting-fixtures.php';")
 pick() { echo "$PEOPLE" | python3 -I -c "import json,sys; print(json.load(sys.stdin)['$1']['$2'])"; }
-ALICE=$(pick alice id); BOB=$(pick bob id); CAROL=$(pick carol id); ALICE_UID=$(pick alice uid); CAROL_UID=$(pick carol uid)
+ALICE=$(pick alice id); BOB=$(pick bob id); CAROL=$(pick carol id); DAVE=$(pick dave id); ALICE_UID=$(pick alice uid); CAROL_UID=$(pick carol uid)
 ok "fixtures: three users" "$([ -n "$ALICE" ] && [ -n "$BOB" ] && [ -n "$CAROL" ] && echo yes)" "yes"
 ok "fixtures: seven flags" "$(tk "echo count(array_filter(array_keys($F->all()), fn(\$h) => str_starts_with(\$h, 'bunting-')));")" "7"
 ok "Pennant store is Bunting's, on its own table" "$(tk "echo config('pennant.default').'/'.config('pennant.stores.bunting.table').'/'.(Illuminate\Support\Facades\Schema::hasTable('features') ? 'features-table' : 'no-features-table');")" "bunting/bunting_features/no-features-table"
@@ -125,9 +131,15 @@ ok "route middleware honours overrides" "$(curl -sk -b "$JC" "$U/bunting/route-o
 # ---- URI gating ----
 ok "gated URI while off → 404" "$(code "$U/bunting/gated")" "404"
 ok "gated wildcard URI while off → 404" "$(code "$U/bunting/beta/page")" "404"
+# Other spellings of a gated URL that reach the same template must not get through (path normalisation
+# in the middleware + a check on the template Craft actually resolved).
+for p in bunting/gated/ BUNTING/Gated bunting//gated bunting/gated.twig bunting/gated/index bunting%2Fgated 'bunting/gated%C0' bunting/gated2 bunting/gated2/index bunting/gated2/index.twig bunting/Gated2/INDEX; do
+  ok "gated variant /$p doesn't serve the page" "$(curl -sk "$U/$p" | grep -c -E 'GATED2?-PAGE')/$(code "$U/$p" | grep -c '^200$')" "0/0"
+done
 ok "ungated URI unaffected" "$(code "$U/bunting/twig")" "200"
 rollout bunting-gate "['mode' => 'on']"
 ok "gated URI while on → 200" "$(curl -sk "$U/bunting/gated" | grep -o 'GATED-PAGE')" "GATED-PAGE"
+ok "gated index template while on → 200" "$(curl -sk "$U/bunting/gated2/index" | grep -o 'GATED2-PAGE')" "GATED2-PAGE"
 ok "gated pages aren't shared-cacheable" "$(curl -sk -D - -o /dev/null "$U/bunting/gated" | grep -i '^cache-control' | grep -c 'no-store')" "1"
 rollout bunting-gate "['mode' => 'rules', 'groupUids' => [CraftCms\Cms\Support\Facades\UserGroups::getGroupByHandle('staff')->uid]]"
 ok "gated by group: staff sees it, others 404" "$(code -b "$JA" "$U/bunting/gated")/$(code -b "$JB" "$U/bunting/gated")/$(code "$U/bunting/gated")" "200/404/404"
@@ -135,8 +147,9 @@ rollout bunting-gate "['mode' => 'off', 'groupUids' => []]"
 ok "gating doesn't touch action requests" "$(code -X POST "$U/actions/bunting/nothing")" "$(code -X POST "$U/actions/nothing-at-all/x")"
 
 # ---- Admin preview ----
-# Other agents' runs can end admin sessions, so each section starts with a fresh one.
-JAD=$("$H/bin/cp-session")
+# Other agents' runs can end admin sessions, so sections check theirs and log in again if needed.
+JAD=$(login admin claudepassword)
+admin() { [ "$(code -b "$JAD" "$U/admin/bunting")" = 200 ] || { rm -f "$JAD"; JAD=$(login admin claudepassword); }; }
 ok "admin preview: ?bunting-preview=bunting-off:on" "$(flag "$JAD" twig bunting-off '' '?bunting-preview=bunting-off:on')" "on/on"
 ok "admin preview sticks for the session (blade too)" "$(flag "$JAD" blade bunting-off)" "on/on"
 ok "admin preview never stored" "$(tk "echo Illuminate\Support\Facades\DB::table('bunting_features')->where('name','bunting-off')->where('scope','like','%|user:'.CraftCms\Cms\User\Elements\User::find()->username('admin')->one()->uid)->where('value','true')->count();")" "0"
@@ -196,7 +209,7 @@ ok "gql: making a flag private drops it from schemas" "$(tk "require_once 'stora
 tk "require_once 'storage/bunting-retry.php'; \$f=$F->get('bunting-public'); \$f->public=true; bunting_retry(fn () => $F->saveDefinition(\$f)); echo 1;" >/dev/null
 
 # ---- CP ----
-rm -f "$JAD"; JAD=$("$H/bin/cp-session")
+admin
 cpcode() { code -b "$JAD" "$U/admin/$1"; }
 FLAGUID() { tk "echo $F->get('$1')?->uid ?? '';"; }
 for p in bunting bunting/new bunting/flags/bunting-nav bunting/audit "bunting/users/$ALICE" "bunting/flags/bunting-nav?checkUser=bunting_alice"; do ok "CP page $p" "$(cpcode "$p")" "200"; done
@@ -225,9 +238,18 @@ ok "CP: delete" "$(post "$JAD" bunting/flags/delete -d uid="$CPUID")/$(FLAGUID b
 ok "CP: logged-out POST refused (CSRF)" "$(code -X POST -d uid= -d name=X -d handle=bunting-x -d mode=on "$U/admin/bunting/flags/save")" "419"
 ok "CP: no CP access → no Bunting pages" "$(code -b "$JB" "$U/admin/bunting" | grep -c -E '302|403')" "1"
 ok "CP: no CP access → can't save" "$(post "$JB" bunting/flags/save -d uid= -d name=X -d handle=bunting-x -d mode=on | grep -c -E '302|403|419')/$(FLAGUID bunting-x)" "1/"
+# dave: CP + Bunting access and the audit log, but neither “Edit flags” nor “View users”.
+JD=$(login bunting_dave)
+ok "read-only CP user: can view flags" "$(code -b "$JD" "$U/admin/bunting")/$(code -b "$JD" "$U/admin/bunting/flags/bunting-nav")" "200/200"
+ok "read-only CP user: no check-a-user tool, no overrides list" "$(curl -sk -b "$JD" "$U/admin/bunting/flags/bunting-nav?checkUser=bunting_alice" | grep -c -E 'bunting-check-result|bunting-overrides|bunting-check-user')" "0"
+ok "read-only CP user: per-user flags screen refused" "$(code -b "$JD" "$U/admin/bunting/users/$ALICE")" "403"
+ok "read-only CP user: can't set overrides or save" "$(post "$JD" bunting/flags/override -d uid="$(FLAGUID bunting-nav)" -d user=bunting_alice -d value=on)/$(post "$JD" bunting/users/save -d userId="$ALICE")/$(post "$JD" bunting/flags/save -d uid= -d name=X -d handle=bunting-x -d mode=on)" "403/403/403"
+ok "read-only CP user: audit hides who overrides were for" "$(curl -sk -b "$JD" "$U/admin/bunting/audit" | grep -c 'bunting_bob: ')/$(curl -sk -b "$JAD" "$U/admin/bunting/audit" | grep -c 'bunting_bob: ')" "0/1"
+ok "read-only CP user: no Feature flags tab on users" "$(curl -sk -b "$JD" "$U/admin/users/$ALICE" | grep -c "bunting\\\\/users")" "0"
+rm -f "$JD"
 ok "user edit page links the Feature flags screen" "$(curl -sk -b "$JAD" "$U/admin/users/$ALICE" | grep -c "bunting\\\\/users\\\\/$ALICE")" "1"
 
-rm -f "$JAD"; JAD=$("$H/bin/cp-session")
+admin
 # ---- Multisite (Bunting's own `buntingfr` site; MULTISITE=1 adds it under the harness lock) ----
 if [ "${MULTISITE:-0}" = 1 ]; then
   "$H/bin/harness-lock" ddev artisan tinker --execute "require 'storage/bunting-multisite-fixtures.php';" 2>&1 | grep -v -E 'WARNING|DEPRECATED|^\s*$' | tail -1

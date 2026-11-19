@@ -19,7 +19,7 @@ foreach ($flags->all() as $handle => $flag) {
 DB::table('bunting_audit')->where('flagHandle', 'like', 'bunting-%')->delete();
 DB::table('bunting_features')->where('name', 'like', 'bunting-%')->delete();
 
-foreach (User::find()->username(['bunting_alice', 'bunting_bob', 'bunting_carol'])->status(null)->all() as $user) {
+foreach (User::find()->username(['bunting_alice', 'bunting_bob', 'bunting_carol', 'bunting_dave'])->status(null)->all() as $user) {
     Elements::deleteElement($user, true);
 }
 

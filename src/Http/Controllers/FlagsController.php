@@ -200,6 +200,7 @@ class FlagsController
     /** Adds, changes or removes one user's override from the flag screen. */
     public function override(Request $request): Response
     {
+        abort_unless(self::canTargetUsers(), 403);
         $flag = $this->flags->getByUid((string) $request->input('uid')) ?? abort(404);
         $value = (string) $request->input('value');
         abort_unless(in_array($value, ['on', 'off', 'remove'], true), 400);
@@ -221,8 +222,9 @@ class FlagsController
         $title = $isNew ? t('New flag', category: 'bunting') : $flag->name;
         $sites = Sites::getAllSites(true)->values()->all();
         $overrides = [];
+        $canTarget = self::canTargetUsers();
 
-        foreach ($this->flags->overrides($flag) as $userId => $value) {
+        foreach ($canTarget ? $this->flags->overrides($flag) : [] as $userId => $value) {
             $user = User::find()->id($userId)->status(null)->one();
             $overrides[] = ['id' => $userId, 'label' => $user ? (string) $user->username : '#'.$userId, 'url' => $user?->getCpEditUrl(), 'value' => $value];
         }
@@ -241,9 +243,10 @@ class FlagsController
                 'overrides' => $overrides,
                 'canEdit' => self::canEdit(),
                 'canDefine' => self::canDefine() && self::canEdit(),
-                'check' => $isNew ? null : $this->check($request, $flag),
+                'canTargetUsers' => $canTarget,
+                'check' => $isNew || ! $canTarget ? null : $this->check($request, $flag),
                 'checkUser' => mb_substr(trim((string) $request->query('checkUser', '')), 0, 255),
-                'audit' => $isNew || ! Gate::check(Plugin::PERMISSION_AUDIT) ? [] : AuditLog::present(app(AuditLog::class)->recent($flag->handle, 10)),
+                'audit' => $isNew || ! Gate::check(Plugin::PERMISSION_AUDIT) ? [] : AuditLog::present(app(AuditLog::class)->recent($flag->handle, 10), showUsers: Gate::check('viewUsers')),
                 'errors' => array_map(fn (array $messages) => (string) ($messages[0] ?? ''), $this->sessionErrors($request)),
                 'form' => $this->formValues($request, $flag),
                 'modes' => self::modeLabels(),
@@ -343,6 +346,16 @@ class FlagsController
         return ctype_digit($who)
             ? $query()->id((int) $who)->one()
             : ($query()->username($who)->one() ?? $query()->email($who)->one());
+    }
+
+    /**
+     * Looking people up by username or email, or listing who has overrides, tells
+     * you who has an account: it needs Bunting's edit permission *and* Craft's
+     * “View users”.
+     */
+    public static function canTargetUsers(): bool
+    {
+        return Gate::check(Plugin::PERMISSION_EDIT) && Gate::check('viewUsers');
     }
 
     public static function canEdit(): bool

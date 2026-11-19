@@ -6,6 +6,7 @@ namespace JustinHoltWeb\Bunting\Http\Controllers;
 
 use CraftCms\Cms\Http\Responses\CpScreenResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use JustinHoltWeb\Bunting\Flags\AuditLog;
 use JustinHoltWeb\Bunting\Flags\Flag;
 
@@ -27,7 +28,7 @@ class AuditController
         return new CpScreenResponse()
             ->title(t('Audit log', category: 'bunting'))
             ->contentTemplate('bunting/_audit', [
-                'rows' => AuditLog::present($audit->recent($flag ?: null, self::PER_PAGE, ($page - 1) * self::PER_PAGE)),
+                'rows' => AuditLog::present($audit->recent($flag ?: null, self::PER_PAGE, ($page - 1) * self::PER_PAGE), showUsers: Gate::check('viewUsers')),
                 'flag' => $flag,
                 'page' => $page,
                 'pages' => $pages,

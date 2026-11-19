@@ -80,25 +80,58 @@ final class Flag
         ];
     }
 
-    /** Whether a site-relative URI (no leading slash) is gated by this flag. */
+    /**
+     * Whether a site-relative URI (or a page template's name) is gated by this flag.
+     *
+     * Both sides are normalised the way Craft resolves a path to a template —
+     * case, repeated and trailing slashes, a trailing `/index`, a template file
+     * extension — so `Beta/Page/`, `beta//page`, `beta/page/index` and
+     * `beta/page.twig` all match `beta/page`. Anything that can't be compared
+     * (invalid UTF-8, a regex error) counts as a match: gating fails closed.
+     */
     public function gatesUri(string $uri): bool
     {
-        $uri = trim($uri, '/');
+        $uri = self::normaliseUri($uri);
+
+        if ($uri === null) {
+            return $this->uriPatterns !== [];
+        }
 
         foreach ($this->uriPatterns as $pattern) {
-            $pattern = trim($pattern, '/');
+            $pattern = self::normaliseUri($pattern);
 
-            if ($pattern === '') {
+            if ($pattern === null || $pattern === '') {
                 continue;
             }
 
-            $regex = '/^'.str_replace('\*', '.*', preg_quote($pattern, '/')).'$/iuD';
+            $regex = '/^'.str_replace('\\*', '.*', preg_quote($pattern, '/')).'$/uD';
+            $matched = preg_match($regex, $uri);
 
-            if (preg_match($regex, $uri) === 1) {
+            if ($matched !== 0) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** Lowercased, slashes collapsed and trimmed, `/index` and template extensions dropped; null if not valid UTF-8. */
+    public static function normaliseUri(string $uri): ?string
+    {
+        if (! mb_check_encoding($uri, 'UTF-8')) {
+            return null;
+        }
+
+        $uri = mb_strtolower(str_replace('\\', '/', $uri));
+        $uri = trim((string) preg_replace('#/+#', '/', $uri), '/');
+
+        do {
+            $before = $uri;
+            $uri = (string) preg_replace('#\.(twig|html|htm|blade\.php|php)$#', '', $uri);
+            $uri = (string) preg_replace('#(^|/)index$#', '', $uri);
+            $uri = trim($uri, '/');
+        } while ($uri !== $before);
+
+        return $uri;
     }
 }

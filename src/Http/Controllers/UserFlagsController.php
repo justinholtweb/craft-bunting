@@ -30,6 +30,7 @@ class UserFlagsController
 
     public function show(int $userId, Bunting $bunting): CpScreenResponse
     {
+        abort_unless(FlagsController::canTargetUsers(), 403);
         $user = User::find()->id($userId)->status(null)->one() ?? abort(404);
         $sites = Sites::getAllSites(true)->values()->all();
         $rows = [];
@@ -65,6 +66,7 @@ class UserFlagsController
 
     public function save(Request $request): Response
     {
+        abort_unless(FlagsController::canTargetUsers(), 403);
         $user = User::find()->id($request->integer('userId'))->status(null)->one() ?? abort(404);
         $changed = 0;
 

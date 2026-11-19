@@ -63,3 +63,27 @@ it('has safe defaults', function () {
         ->and($settings->guestRollout)->toBeFalse()
         ->and($settings->navLabel())->toBeNull();
 });
+
+it('normalises URIs the way Craft resolves templates', function (string $uri, ?string $normalised) {
+    expect(Flag::normaliseUri($uri))->toBe($normalised);
+})->with([
+    ['Beta/Page/', 'beta/page'],
+    ['/beta//page', 'beta/page'],
+    ['beta/page/index', 'beta/page'],
+    ['beta/page.twig', 'beta/page'],
+    ['beta/page/index.blade.php', 'beta/page'],
+    ['beta\\page', 'beta/page'],
+    ['index', ''],
+    ["beta/\xC0", null],
+]);
+
+it('gates every spelling of a gated URI, and fails closed on what it can’t read', function () {
+    $flag = new Flag(1, 'u', 'g', 'G', uriPatterns: ['secret/page', 'beta/*']);
+
+    foreach (['secret/page', 'SECRET/Page/', 'secret//page', 'secret/page/index', 'secret/page.twig', 'beta/x', "secret/\xC0"] as $uri) {
+        expect($flag->gatesUri($uri))->toBeTrue();
+    }
+
+    expect($flag->gatesUri('secret/pages'))->toBeFalse()
+        ->and((new Flag(1, 'u', 'x', 'X'))->gatesUri("secret/\xC0"))->toBeFalse();
+});

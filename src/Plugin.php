@@ -21,6 +21,7 @@ use CraftCms\Cms\Ui\Nodes\Field;
 use CraftCms\Cms\Ui\Ui;
 use CraftCms\Cms\Ui\UiContext;
 use CraftCms\Cms\User\Data\Permission;
+use CraftCms\Cms\View\Events\PageTemplateRendering;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -52,6 +53,7 @@ class Plugin extends BasePlugin
 
     protected array $events = [
         GqlSchemaComponentsResolving::class => Listeners\RegisterGqlComponents::class,
+        PageTemplateRendering::class => Listeners\GateTemplates::class,
     ];
 
     protected array $commands = [

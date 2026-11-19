@@ -14,6 +14,7 @@ use CraftCms\Cms\User\Events\UserGroupDeleted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use JustinHoltWeb\Bunting\Flags\Flags;
+use JustinHoltWeb\Bunting\Http\Controllers\FlagsController;
 
 use function CraftCms\Cms\cp_url;
 use function CraftCms\Cms\t;
@@ -78,7 +79,7 @@ class Housekeeping
 
     public function userScreens(EditUserScreensResolving $event): void
     {
-        if ($event->editedUser->id !== null && Gate::check('accessPlugin-bunting')) {
+        if ($event->editedUser->id !== null && Gate::check('accessPlugin-bunting') && FlagsController::canTargetUsers()) {
             $event->screens['bunting'] = [
                 'label' => t('Feature flags', category: 'bunting'),
                 'url' => cp_url('bunting/users/'.$event->editedUser->id),

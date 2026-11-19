@@ -118,6 +118,7 @@
 
 {% if not isNew %}
   <div class="bunting-form" style="margin-top: 2rem">
+    {% if canTargetUsers %}
     <fieldset id="bunting-overrides">
       <legend>{{ 'Per-user overrides'|t('bunting') }}</legend>
       <p class="hint">{{ 'An override beats every rule, on every site.'|t('bunting') }}</p>
@@ -168,6 +169,7 @@
         {% endif %}
       {% endif %}
     </fieldset>
+    {% endif %}
 
     {% if audit is not empty %}
       <fieldset>
