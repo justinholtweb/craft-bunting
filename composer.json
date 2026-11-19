@@ -60,6 +60,7 @@
         "sort-packages": true
     },
     "support": {
+        "docs": "https://justinholt.com/plugins/craft-bunting/docs",
         "issues": "https://github.com/justinholtweb/craft-bunting/issues",
         "source": "https://github.com/justinholtweb/craft-bunting"
     },
