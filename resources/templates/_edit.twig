@@ -38,7 +38,7 @@
     <div class="bunting-field">
       <label for="bunting-handle">{{ 'Handle'|t('bunting') }}</label>
       <input class="text code" type="text" id="bunting-handle" name="handle" value="{{ form.handle }}" maxlength="64" pattern="[a-z][a-z0-9\-_.]*" required {{ disabledDef }}>
-      <p class="hint">{{ 'What code checks: `feature(\'{handle}\')`, `@feature(\'{handle}\')`, `Feature::active(\'{handle}\')`. Lowercase letters, numbers, dashes, dots and underscores.'|t('bunting', {handle: flag.handle ?: 'new-nav'}) }}</p>
+      <p class="hint">{{ 'What code checks, as in `feature("{handle}")` or `@feature("{handle}")`. Lowercase letters, numbers, dashes, dots and underscores.'|t('bunting', {handle: flag.handle ?: 'new-nav'}) }}</p>
       {% if errors.handle ?? null %}<p class="bunting-error" id="bunting-handle-error">{{ errors.handle ?? null }}</p>{% endif %}
     </div>
     <div class="bunting-field">

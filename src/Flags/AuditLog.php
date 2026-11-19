@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace JustinHoltWeb\Bunting\Flags;
 
+use CraftCms\Cms\Support\Facades\Sites;
+use CraftCms\Cms\Support\Facades\UserGroups;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -113,9 +115,10 @@ final class AuditLog
      * Rows with their changes as readable lines, for the CP.
      *
      * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, string>|null  $names  UID → handle for sites and groups (default: looked up)
      * @return list<array<string, mixed>>
      */
-    public static function present(array $rows): array
+    public static function present(array $rows, ?array $names = null): array
     {
         $show = fn (mixed $v): string => match (true) {
             $v === null => '—',
@@ -123,6 +126,20 @@ final class AuditLog
             $v === false => 'off',
             is_array($v) => $v === [] ? '—' : (json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''),
             default => (string) (is_scalar($v) ? $v : ''),
+        };
+
+        // Show sites and groups by handle rather than UID where they still exist.
+        $names ??= self::names();
+        $show = function (mixed $v) use ($show, $names): string {
+            if (is_array($v)) {
+                $mapped = [];
+                foreach ($v as $k => $item) {
+                    $mapped[is_string($k) ? ($names[$k] ?? $k) : $k] = is_string($item) ? ($names[$item] ?? $item) : $item;
+                }
+                $v = $mapped;
+            }
+
+            return $show($v);
         };
 
         return array_map(function (array $row) use ($show): array {
@@ -139,6 +156,22 @@ final class AuditLog
 
             return [...$row, 'lines' => $lines];
         }, $rows);
+    }
+
+    /** @return array<string, string> */
+    private static function names(): array
+    {
+        $names = [];
+
+        foreach (Sites::getAllSites(true) as $site) {
+            $names[(string) $site->uid] = (string) $site->handle;
+        }
+
+        foreach (UserGroups::getAllGroups() as $group) {
+            $names[(string) $group->uid] = (string) $group->handle;
+        }
+
+        return $names;
     }
 
     private static function normalise(mixed $value): mixed

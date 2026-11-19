@@ -50,9 +50,9 @@ it('presents audit rows as readable lines', function () {
     $rows = AuditLog::present([
         ['action' => 'rollout', 'changes' => ['mode' => ['from' => 'off', 'to' => 'on'], 'groupUids' => ['from' => [], 'to' => ['g']]]],
         ['action' => 'override', 'changes' => ['user' => ['id' => 1, 'label' => 'ada'], 'override' => ['from' => null, 'to' => true]]],
-    ]);
+    ], ['g' => 'staff']);
 
-    expect($rows[0]['lines'])->toBe(['mode: off → on', 'groupUids: — → ["g"]'])
+    expect($rows[0]['lines'])->toBe(['mode: off → on', 'groupUids: — → ["staff"]'])
         ->and($rows[1]['lines'])->toBe(['ada: — → on']);
 });
 
