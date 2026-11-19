@@ -1,0 +1,4 @@
+{# Bunting harness: each flag through feature() and bunting.active() #}
+{% for h in ['bunting-nav', 'bunting-off', 'bunting-on', 'bunting-pct', 'bunting-public', 'bunting-nope'] %}<p data-flag="{{ h }}">{{ feature(h) ? 'on' : 'off' }}/{{ bunting.active(h) ? 'on' : 'off' }}</p>
+{% endfor %}<p id="any">{{ featureAny(['bunting-off', 'bunting-on']) ? 'on' : 'off' }}/{{ featureAny(['bunting-off', 'bunting-nope']) ? 'on' : 'off' }}</p>
+<p id="site">{{ currentSite.handle }}</p>

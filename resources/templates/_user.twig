@@ -1,0 +1,44 @@
+{# Users → (user) → Feature flags #}
+<style>
+  .bunting-user td, .bunting-user th { padding: .4rem .9rem .4rem 0; text-align: left; vertical-align: top; }
+  .bunting-on { color: var(--success-color, #0b8a4b); font-weight: 600; }
+  .bunting-off { opacity: .7; }
+</style>
+{% if rows is empty %}
+  <p>{{ 'No flags yet.'|t('bunting') }} <a href="{{ cpUrl('bunting') }}">{{ 'Feature flags'|t('bunting') }}</a></p>
+{% else %}
+<form method="post" action="{{ cpUrl('bunting/users/save') }}">
+  {{ csrf_field() }}
+  <input type="hidden" name="userId" value="{{ user.id }}">
+  <table class="cp-table bunting-user" id="bunting-user-flags">
+    <thead><tr>
+      <th>{{ 'Flag'|t('bunting') }}</th>
+      {% for site in sites %}<th>{{ site.name }}</th>{% endfor %}
+      <th>{{ 'Override'|t('bunting') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr data-flag="{{ row.flag.handle }}">
+        <th><a href="{{ cpUrl('bunting/flags/' ~ row.flag.handle) }}">{{ row.flag.name }}</a><div><code>{{ row.flag.handle }}</code></div></th>
+        {% for site in sites %}
+          {% set r = row.values[site.handle] %}
+          <td data-site="{{ site.handle }}" data-value="{{ r.value ? 'on' : 'off' }}" title="{{ reasons[r.reason] ?? r.reason }}">
+            <span class="{{ r.value ? 'bunting-on' : 'bunting-off' }}">{{ r.value ? 'On'|t('bunting') : 'Off'|t('bunting') }}</span>
+            <div class="bunting-off" style="font-size:.85em">{{ reasons[r.reason] ?? r.reason }}</div>
+          </td>
+        {% endfor %}
+        <td>
+          {% set o = row.override is same as(null) ? 'inherit' : (row.override ? 'on' : 'off') %}
+          <select name="overrides[{{ row.flag.uid }}]" aria-label="{{ 'Override for {flag}'|t('bunting', {flag: row.flag.name}) }}" {{ not canEdit ? 'disabled' }}>
+            <option value="inherit" {{ o == 'inherit' ? 'selected' }}>{{ 'No override'|t('bunting') }}</option>
+            <option value="on" {{ o == 'on' ? 'selected' }}>{{ 'Always on'|t('bunting') }}</option>
+            <option value="off" {{ o == 'off' ? 'selected' }}>{{ 'Always off'|t('bunting') }}</option>
+          </select>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if canEdit %}<p style="margin-top:1rem"><button type="submit" class="btn submit">{{ 'Save overrides'|t('bunting') }}</button></p>{% endif %}
+</form>
+{% endif %}

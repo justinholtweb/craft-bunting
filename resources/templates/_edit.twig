@@ -1,0 +1,199 @@
+{# Bunting → flag edit screen #}
+{% set disabledDef = not canDefine ? 'disabled' : '' %}
+{% set disabledRoll = not canEdit ? 'disabled' : '' %}
+
+<style>
+  .bunting-form { display: grid; gap: 1.5rem; max-width: 56rem; }
+  .bunting-form fieldset { border: 1px solid var(--gray-200, #e3e5e8); border-radius: 6px; padding: 1rem 1.25rem; display: grid; gap: 1rem; }
+  .bunting-form legend { font-weight: 600; padding: 0 .35rem; }
+  .bunting-field { display: grid; gap: .3rem; }
+  .bunting-field label, .bunting-label { font-weight: 600; }
+  .bunting-field .hint { font-size: .85em; opacity: .75; }
+  .bunting-field input[type=text], .bunting-field input[type=number], .bunting-field textarea, .bunting-field select { width: 100%; max-width: 32rem; }
+  .bunting-error { color: var(--error-color, #cf1124); font-size: .9em; }
+  .bunting-checks { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+  .bunting-sites { border-collapse: collapse; }
+  .bunting-sites th, .bunting-sites td { padding: .35rem .75rem .35rem 0; text-align: left; }
+  .bunting-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+  .bunting-result { padding: .5rem .75rem; border-radius: 4px; background: var(--gray-050, #f3f7fc); }
+  .bunting-audit { font-size: .9em; }
+  .bunting-audit td, .bunting-audit th { padding: .25rem .75rem .25rem 0; vertical-align: top; text-align: left; }
+</style>
+
+{% if not canDefine and canEdit %}
+  <p class="bunting-result" id="bunting-readonly">{{ 'Admin changes are disallowed here, so the flag’s name, handle and URIs are read-only. Its rollout and overrides can still be changed.'|t('bunting') }}</p>
+{% endif %}
+
+<form method="post" action="{{ cpUrl('bunting/flags/save') }}" class="bunting-form" id="bunting-flag-form">
+  {{ csrf_field() }}
+  <input type="hidden" name="uid" value="{{ flag.uid }}">
+
+  <fieldset>
+    <legend>{{ 'Flag'|t('bunting') }}</legend>
+    <div class="bunting-field">
+      <label for="bunting-name">{{ 'Name'|t('bunting') }}</label>
+      <input class="text" type="text" id="bunting-name" name="name" value="{{ form.name }}" maxlength="255" required {{ disabledDef }}>
+      {% if errors.name ?? null %}<p class="bunting-error">{{ errors.name ?? null }}</p>{% endif %}
+    </div>
+    <div class="bunting-field">
+      <label for="bunting-handle">{{ 'Handle'|t('bunting') }}</label>
+      <input class="text code" type="text" id="bunting-handle" name="handle" value="{{ form.handle }}" maxlength="64" pattern="[a-z][a-z0-9\-_.]*" required {{ disabledDef }}>
+      <p class="hint">{{ 'What code checks: `feature(\'{handle}\')`, `@feature(\'{handle}\')`, `Feature::active(\'{handle}\')`. Lowercase letters, numbers, dashes, dots and underscores.'|t('bunting', {handle: flag.handle ?: 'new-nav'}) }}</p>
+      {% if errors.handle ?? null %}<p class="bunting-error" id="bunting-handle-error">{{ errors.handle ?? null }}</p>{% endif %}
+    </div>
+    <div class="bunting-field">
+      <label for="bunting-description">{{ 'Description'|t('bunting') }}</label>
+      <textarea class="text" id="bunting-description" name="description" rows="2" {{ disabledDef }}>{{ form.description }}</textarea>
+    </div>
+    <div class="bunting-field">
+      <label><input type="checkbox" name="public" value="1" {{ form.public ? 'checked' }} {{ disabledDef }}> {{ 'Public'|t('bunting') }}</label>
+      <p class="hint">{{ 'Public flags can be offered to GraphQL schemas, which then read whether the flag is on for the requesting user. Its rules are never exposed.'|t('bunting') }}</p>
+    </div>
+    <div class="bunting-field">
+      <label for="bunting-uris">{{ 'Gated URIs'|t('bunting') }}</label>
+      <textarea class="text code" id="bunting-uris" name="uriPatterns" rows="3" placeholder="new-pricing&#10;beta/*" {{ disabledDef }}>{{ form.uriPatterns }}</textarea>
+      <p class="hint">{{ 'Site URIs that return a 404 while the flag is off for the visitor. One per line; `*` matches anything.'|t('bunting') }}</p>
+      {% if errors.uriPatterns ?? null %}<p class="bunting-error">{{ errors.uriPatterns ?? null }}</p>{% endif %}
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>{{ 'Rollout'|t('bunting') }}</legend>
+    <div class="bunting-field">
+      <label for="bunting-mode">{{ 'Everywhere'|t('bunting') }}</label>
+      <select id="bunting-mode" name="mode" {{ disabledRoll }}>
+        {% for mode, label in modes|filter((l, m) => m != 'inherit') %}
+          <option value="{{ mode }}" {{ form.mode == mode ? 'selected' }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.mode ?? null %}<p class="bunting-error">{{ errors.mode ?? null }}</p>{% endif %}
+    </div>
+    {% if sites|length > 1 %}
+      <div class="bunting-field">
+        <span class="bunting-label">{{ 'Per site'|t('bunting') }}</span>
+        <table class="bunting-sites" id="bunting-site-modes">
+          {% for site in sites %}
+            <tr>
+              <th><label for="bunting-site-{{ site.id }}">{{ site.name }}</label> <code>{{ site.handle }}</code></th>
+              <td>
+                <select id="bunting-site-{{ site.id }}" name="siteModes[{{ site.uid }}]" {{ disabledRoll }}>
+                  {% set current = form.siteModes[site.uid] ?? 'inherit' %}
+                  {% for mode, label in modes %}
+                    <option value="{{ mode }}" {{ current == mode ? 'selected' }}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+        <p class="hint">{{ 'A site’s own mode beats the flag’s: on for one site, off for another.'|t('bunting') }}</p>
+      </div>
+    {% endif %}
+    <div class="bunting-field">
+      <span class="bunting-label">{{ 'User groups'|t('bunting') }}</span>
+      {% if groups is empty %}
+        <p class="hint">{{ 'No user groups yet.'|t('bunting') }}</p>
+      {% else %}
+        <div class="bunting-checks">
+          {% set chosen = form.groups %}
+          {% for group in groups %}
+            <label><input type="checkbox" name="groups[]" value="{{ group.uid }}" {{ group.uid in chosen ? 'checked' }} {{ disabledRoll }}> {{ group.name }}</label>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <p class="hint">{{ 'With “By rules”: on for members of these groups.'|t('bunting') }}</p>
+    </div>
+    <div class="bunting-field">
+      <label for="bunting-percentage">{{ 'Percentage of users'|t('bunting') }}</label>
+      <input class="text" type="number" id="bunting-percentage" name="percentage" min="0" max="100" step="1" value="{{ form.percentage }}" style="max-width: 8rem" {{ disabledRoll }}>
+      <p class="hint">{{ 'With “By rules”: also on for this share of everyone else who’s signed in. Each person’s place is fixed, so raising the number only adds people.'|t('bunting') }}</p>
+      {% if errors.percentage ?? null %}<p class="bunting-error">{{ errors.percentage ?? null }}</p>{% endif %}
+    </div>
+  </fieldset>
+
+  {% if canEdit %}
+    <div><button type="submit" class="btn submit">{{ 'Save'|t('bunting') }}</button></div>
+  {% endif %}
+</form>
+
+{% if not isNew %}
+  <div class="bunting-form" style="margin-top: 2rem">
+    <fieldset id="bunting-overrides">
+      <legend>{{ 'Per-user overrides'|t('bunting') }}</legend>
+      <p class="hint">{{ 'An override beats every rule, on every site.'|t('bunting') }}</p>
+      {% if overrides is not empty %}
+        <table class="bunting-sites">
+          {% for o in overrides %}
+            <tr data-user="{{ o.label }}">
+              <th>{% if o.url %}<a href="{{ o.url }}">{{ o.label }}</a>{% else %}{{ o.label }}{% endif %}</th>
+              <td>{{ o.value ? 'On'|t('bunting') : 'Off'|t('bunting') }}</td>
+              <td>
+                {% if canEdit %}
+                  <form method="post" action="{{ cpUrl('bunting/flags/override') }}">{{ csrf_field() }}
+                    <input type="hidden" name="uid" value="{{ flag.uid }}"><input type="hidden" name="user" value="{{ o.id }}"><input type="hidden" name="value" value="remove">
+                    <button type="submit" class="btn small">{{ 'Remove'|t('bunting') }}</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+      {% endif %}
+      {% if canEdit %}
+        <form method="post" action="{{ cpUrl('bunting/flags/override') }}" class="bunting-row">{{ csrf_field() }}
+          <input type="hidden" name="uid" value="{{ flag.uid }}">
+          <div class="bunting-field"><label for="bunting-override-user">{{ 'Username, email or ID'|t('bunting') }}</label><input class="text" type="text" id="bunting-override-user" name="user" required></div>
+          <div class="bunting-field"><label for="bunting-override-value">{{ 'Value'|t('bunting') }}</label>
+            <select id="bunting-override-value" name="value"><option value="on">{{ 'On'|t('bunting') }}</option><option value="off">{{ 'Off'|t('bunting') }}</option></select></div>
+          <button type="submit" class="btn">{{ 'Add override'|t('bunting') }}</button>
+        </form>
+      {% endif %}
+    </fieldset>
+
+    <fieldset id="bunting-check">
+      <legend>{{ 'Check a user'|t('bunting') }}</legend>
+      <form method="get" action="{{ cpUrl('bunting/flags/' ~ flag.handle) }}" class="bunting-row">
+        <div class="bunting-field"><label for="bunting-check-user">{{ 'Username, email or ID (blank: a guest)'|t('bunting') }}</label><input class="text" type="text" id="bunting-check-user" name="checkUser" value="{{ checkUser }}"></div>
+        <div class="bunting-field"><label for="bunting-check-site">{{ 'Site'|t('bunting') }}</label>
+          <select id="bunting-check-site" name="checkSite">{% for site in sites %}<option value="{{ site.handle }}" {{ check.site is defined and check.site == site.handle ? 'selected' }}>{{ site.name }}</option>{% endfor %}</select></div>
+        <button type="submit" class="btn">{{ 'Check'|t('bunting') }}</button>
+      </form>
+      {% if check %}
+        {% if check.error is defined %}
+          <p class="bunting-error" id="bunting-check-result">{{ check.error }}</p>
+        {% else %}
+          <p class="bunting-result" id="bunting-check-result" data-value="{{ check.value ? 'on' : 'off' }}" data-reason="{{ check.reason }}">
+            {{ (check.value ? '{user} on {site}: on, because {reason}.' : '{user} on {site}: off, because {reason}.')|t('bunting', {user: check.user, site: check.site, reason: reasons[check.reason] ?? check.reason}) }}
+          </p>
+        {% endif %}
+      {% endif %}
+    </fieldset>
+
+    {% if audit is not empty %}
+      <fieldset>
+        <legend>{{ 'Recent changes'|t('bunting') }}</legend>
+        {% include 'bunting/_audit-rows' with {rows: audit} %}
+        <p><a href="{{ cpUrl('bunting/audit', {flag: flag.handle}) }}">{{ 'Full history'|t('bunting') }}</a></p>
+      </fieldset>
+    {% endif %}
+
+    {% if canEdit %}
+      <fieldset>
+        <legend>{{ 'Maintenance'|t('bunting') }}</legend>
+        <div class="bunting-row">
+          <form method="post" action="{{ cpUrl('bunting/flags/purge') }}">{{ csrf_field() }}
+            <input type="hidden" name="uid" value="{{ flag.uid }}">
+            <button type="submit" class="btn">{{ 'Purge stored values'|t('bunting') }}</button>
+          </form>
+          {% if canDefine %}
+            <form method="post" action="{{ cpUrl('bunting/flags/delete') }}" onsubmit="return confirm({{ 'Delete this flag? Code that checks it will see it as off.'|t('bunting')|json_encode }})">{{ csrf_field() }}
+              <input type="hidden" name="uid" value="{{ flag.uid }}">
+              <button type="submit" class="btn">{{ 'Delete flag'|t('bunting') }}</button>
+            </form>
+          {% endif %}
+        </div>
+        <p class="hint">{{ 'Stored values are each user’s resolved value, kept by Pennant. They’re purged automatically whenever the rollout changes.'|t('bunting') }}</p>
+      </fieldset>
+    {% endif %}
+  </div>
+{% endif %}

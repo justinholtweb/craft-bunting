@@ -22,7 +22,8 @@
     ],
     "require": {
         "php": "^8.5",
-        "craftcms/cms": "^6.0.0-beta.1"
+        "craftcms/cms": "^6.0.0-beta.1",
+        "laravel/pennant": "^1.18"
     },
     "require-dev": {
         "larastan/larastan": "^3.13",

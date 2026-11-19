@@ -1,0 +1,27 @@
+{# Audit rows: date, flag, action, who, what changed #}
+{% set actions = {
+  created: 'Created'|t('bunting'),
+  updated: 'Definition changed'|t('bunting'),
+  deleted: 'Deleted'|t('bunting'),
+  rollout: 'Rollout changed'|t('bunting'),
+  override: 'Override'|t('bunting'),
+  purged: 'Stored values purged'|t('bunting'),
+} %}
+<table class="bunting-audit cp-table" id="bunting-audit">
+  <thead><tr>
+    <th>{{ 'When (UTC)'|t('bunting') }}</th><th>{{ 'Flag'|t('bunting') }}</th><th>{{ 'What'|t('bunting') }}</th><th>{{ 'Who'|t('bunting') }}</th><th>{{ 'Changes'|t('bunting') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr data-action="{{ row.action }}" data-flag="{{ row.flagHandle }}">
+      <td>{{ row.dateCreated }}</td>
+      <td><code>{{ row.flagHandle }}</code></td>
+      <td>{{ actions[row.action] ?? row.action }}</td>
+      <td>{{ row.userName ?? 'Console or project config'|t('bunting') }}</td>
+      <td>
+        {% for line in row.lines %}<div>{{ line }}</div>{% endfor %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>

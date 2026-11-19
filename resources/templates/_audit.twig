@@ -1,0 +1,17 @@
+{# Bunting → Audit log #}
+<style>.bunting-audit td, .bunting-audit th { padding: .35rem .75rem .35rem 0; vertical-align: top; text-align: left; }</style>
+<form method="get" action="{{ cpUrl('bunting/audit') }}" style="display:flex; gap:.5rem; align-items:end; margin-bottom:1rem">
+  <label for="bunting-audit-flag">{{ 'Flag'|t('bunting') }}</label>
+  <input class="text code" type="text" id="bunting-audit-flag" name="flag" value="{{ flag }}" placeholder="{{ 'All flags'|t('bunting') }}">
+  <button type="submit" class="btn">{{ 'Filter'|t('bunting') }}</button>
+</form>
+{% if rows is empty %}
+  <p>{{ 'Nothing has changed yet.'|t('bunting') }}</p>
+{% else %}
+  {% include 'bunting/_audit-rows' with {rows: rows} %}
+  <p style="display:flex; gap:1rem; margin-top:1rem">
+    {% if page > 1 %}<a href="{{ cpUrl('bunting/audit', {flag: flag ?: null, page: page - 1}|filter(v => v is not null)) }}">{{ '← Newer'|t('bunting') }}</a>{% endif %}
+    <span>{{ 'Page {page} of {pages}'|t('bunting', {page: page, pages: pages}) }}</span>
+    {% if page < pages %}<a href="{{ cpUrl('bunting/audit', {flag: flag ?: null, page: page + 1}|filter(v => v is not null)) }}">{{ 'Older →'|t('bunting') }}</a>{% endif %}
+  </p>
+{% endif %}
