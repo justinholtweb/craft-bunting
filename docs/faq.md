@@ -32,3 +32,16 @@ No. `buntingFlags` answers for the requesting user (or a guest) only, and only f
 
 **What happens when I delete a flag?**
 Code that checks it sees it as off. Condition rules that use it stop matching. Its audit history stays.
+
+## Bunting or Wink?
+
+They overlap in one place: both can show something to a percentage of visitors, and keep showing
+each visitor the same thing.
+
+- **[Wink](https://craft-wink.com)** runs A/B experiments on Craft 5. It splits visitors between
+  variants, tracks conversion goals and reports which variant won, with statistical significance.
+- **Bunting** is a feature flag on Craft 6. A flag is on, off, or on for chosen users, groups,
+  sites or a percentage. It doesn't track conversions or pick a winner.
+
+Use Bunting to roll a change out gradually or switch it off quickly, and an experiment when you
+need to know whether the change worked.
