@@ -1,6 +1,12 @@
 # Release Notes for Bunting
 
-## 6.0.0-beta.1 - Unreleased
+## 6.0.0-beta.2 - 2026-11-21
+
+### Changed
+- The documentation link (Plugin Store and README) now points at the docs on justinholt.com.
+- The docs FAQ now compares Bunting with Wink.
+
+## 6.0.0-beta.1 - 2026-11-18
 
 > Bunting is a native **Craft CMS 6** plugin. Craft 6 is in beta, and so is Bunting: use caution on production.
 
